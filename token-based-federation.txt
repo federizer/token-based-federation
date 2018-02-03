@@ -1,0 +1,254 @@
+                               OAuth 2 Token-Based Federation
+                               draft-token-based-federation-01
+
+
+Abstract
+
+   Token-Based Federation (TBF) is an OAuth 2.0 federated authorization framework.
+   TBF defines interfaces, flows and constructs for coordinating access to heterogeneous
+   OAuth 2.0 resource servers across multiple administrative domains.
+   
+Copyright Notice
+
+   Copyright (c) 2016 Token7 and the persons identified as the
+   document authors. All rights reserved.
+
+Introduction
+
+   To begin with, there are two different definitions for the term federation:
+
+     1. Information sharing between heterogeneous networks (telecommunications networks)  
+     2. Collective authority (federated identity)
+
+   The TBF framework refers to No. 1
+
+Architectural Principle
+
+   The TBF mechanism is handled by the cross-domain autonomic control loop
+   through two authorization servers each in its own administrative domain.
+   
+OSI Model from TBF perspective
+
+      +--------------------+----------------+----------------------+-------------------------+
+      |     OSI Layer      |   Protocols    |      Framework       |         Comment         |
+      +--------------------+                |                      |                         |
+      | No. |    Name      |                |                      |                         |
+      +-----+--------------+----------------+----------------------+-------------------------+
+      | 7.4 |              | HTTP(S), ...   | Spring, ASP.NET, ... | Federated Session       |
+      +-----+              +----------------+----------------------+-------------------------+
+      | 7.3 |              |                | TBF                  | Federated Authorization |
+      +-----+ Application  | OAuth2         +----------------------+-------------------------+
+      | 7.2 |              |                | OpenID Connect       | Federated Identity      |
+      +-----+              +----------------+----------------------+-------------------------+
+      | 7.1 |              | DNS, Webfinger |                      | Federated Domain        |
+      +-----+--------------+----------------+----------------------+-------------------------+
+      | 6   | Presentation |
+      +-----+--------------+
+      | 5   | Session      |
+      +-----+--------------+
+      | 4   | Transport    |
+      +-----+--------------+
+      | 3   | Network      |
+      +-----+--------------+
+      | 2   | Data link    |
+      +-----+--------------+
+      | 1   | Physical     |
+      +-----+--------------+
+   
+Terminology
+
+   This specification uses the terms "Access Token", "Authorization Code", "Authorization Endpoint",
+   "Authorization Grant", "Authorization Server", "Client", "Resource Server" defined by OAuth 2.0 [RFC6749]
+   and the term "Introspection Endpoint" defined by OAuth 2.0 Token Introspection [RFC7662].
+   
+   This specification also defines the following terms:
+   
+   Trustor
+       The administrative domain that trusts the target administrative domain
+   
+   Trustee
+       The administrative domain that is trusted
+   
+   Federator
+       The administrative domain that federates the Trustor
+   
+   Federatee
+       The Trustor that is federated
+
+   Requestor
+       A subject operating the Federator's Client that requests the protected resource from the Federatee's Resource Server.
+
+   Federated Trust Relationship
+       Each Federated Trust Relationship between two administrative domains is defined as
+       an asymmetric one-way trust between Trustor and Trustee paired with the reflexive asymmetric
+       unidirectional federation between Federator and Federatee.
+	   
+   Federation Operator
+       A third party organization that creates the policies, procedures, and technical standards
+	   for a given federation and that acts as a trusted intermediary between Federator and Federatee.
+
+OAuth 2.0 access, trust and federation directions
+
+     Administrative Domain A         Administrative Domain B
+
+                                |
+        OAuth 2.0 Client        |    OAuth 2.0 Resource Server
+                       Direction of access
+                   -------------------------->
+                                |
+                                |
+              Trustee           |            Trustor
+                       Direction of trust
+                   <--------------------------
+                                |
+                                |
+             Federator          |           Federatee
+                     Direction of federation
+                   -------------------------->
+                                |
+                                |
+
+Client to Resource Server Federation - Protocol Description
+
+   A Federated Trust Relationship must be established between authorization servers AS1 and AS2.
+   
+   The process begins with any standard OAuth2 protocol flow, where the
+   client obtains AT1 from the AS1.
+
+   The beginning of the process is standard OAuth2 flow using any legal
+   OAuth2 grant type to obtain the AT1.
+
+     +-------------+       +-------------+
+     |             |--(A)->|             |
+     |             |       |   Sender    |
+     |             |<-(B)--|             |
+     |             |       +-------------+
+     |             |
+     |             |                             +---------------+       +---------------+
+     | Federator's |--(C)----------------------->|  Federator's  |       |  Federatee's  |
+     |   Client    |                             | Authorization |       | Authorization |
+     |             |<-(D)------------------------|     Server    |       |     Server    |
+     |             |                             |     (AS1)     |       |     (AS2)     |
+     |             |                             |               |       |               |
+     |             |                             |               |       |               |       +-------------+
+     |             |                             |               |<-(G)--|               |<-(F)--| Federatee's |
+     |             |                             |               |       |               |       |  Resource   |
+     |             |                             |               |--(H)->|               |--(I)->|   Server    |
+     |             |                             +---------------+       +---------------+       |   (RS2)     |
+     |             |                                                                             |             |
+     |             |                                                                             |             |
+     |             |--(E)----------------------------------------------------------------------->|             |
+     |             |                                                                             |             |   
+     |             |<-(J)------------------------------------------------------------------------|             |
+     |             |                                                                             |             |    
+     +-------------+                                                                             +-------------+
+
+   (A)  Client requests authorization from Sender
+
+   (B)  Client receives authorization from the Sender using any
+      valid OAuth2 grant type
+
+   (C)  Client requests AT from the AS1 by authenticating with the AS1
+      and presenting the authorization grant obtained in (B)
+
+   (D)  AS1 authenticates the Client and issues access token AT for use at RS2
+
+   (E)  Client presents access token AT to RS1 to access a protected resource
+
+   (F)  RS2 presents AT on the Federated Introspection Endpoint on AS2
+
+   (G)  AS2 validates AT on the Federated Introspection Endpoint and
+      presents this AT on the Introspection Endpoint on AS1
+
+   (H)  AS1 validates AT on the Introspection Endpoint and returns JSON document
+      representing the meta information surrounding the token, including whether
+	  this token is currently active.
+
+   (I)  AS2 validates JSON document returned from AS1 Introspection Endpoint and
+      returns the new JSON document representing the meta information from AS2.
+
+   (J)  RS2 validates token AT and returns the protected resource to Client
+
+   Steps A-E and J are standard OAuth2 and OAuth2 Bearer tokens
+   involving token AT.  As such, the Client MAY make use of any OAuth2
+   grant type, such as authorization_code, implicit, client_credentials,
+   password or assertion.
+
+Resource Server to Resource Server Federation - Protocol Description
+
+   A Federated Trust Relationship must be established between authorization servers AS1 and AS2.
+   
+   The process begins with any standard OAuth2 protocol flow, where the
+   client obtains AT1 from the AS1.
+
+   The beginning of the process is standard OAuth2 flow using any legal
+   OAuth2 grant type to obtain the AT1.
+   
+     +-------------+       +-------------+
+     |             |--(A)->|             |
+     |             |       |   Sender    |
+     |             |<-(B)--|             |
+     |             |       +-------------+
+     |             |
+     |             |                             +---------------+       +---------------+
+     | Federator's |--(C)----------------------->|  Federator's  |       |  Federatee's  |
+     |   Client    |                             | Authorization |       | Authorization |
+     |             |<-(D)------------------------|     Server    |       |     Server    |
+     |             |                             |     (AS1)     |       |     (AS2)     |
+     |             |                             |               |       |               |
+     |             |       +-------------+       |               |       |               |       +-------------+
+     |             |--(E)->| Federator's |--(F)->|               |<-(J)--|               |<-(I)--| Federatee's |
+     |             |       |  Resource   |       |               |       |               |       |  Resource   |
+     |             |       |   Server    |<-(G)--|               |--(K)->|               |--(L)->|   Server    |
+     |             |       |   (RS1)     |       +---------------+       +---------------+       |   (RS2)     |
+     |             |       |             |                                                       |             |
+     |             |       |             |                                                       |             |
+     |             |       |             |--(H)------------------------------------------------->|             |
+     |             |       |             |                                                       |             |   
+     |             |       |             |<-(M)--------------------------------------------------|             |
+     |             |<-(N)--|             |                                                       |             |    
+     +-------------+       +-------------+                                                       +-------------+
+
+   (A)  Client requests authorization from Sender
+
+   (B)  Client receives authorization from the Sender using any
+      valid OAuth2 grant type
+
+   (C)  Client requests AT1 from the AS1 by authenticating with the AS1
+      and presenting the authorization grant obtained in (B)
+
+   (D)  AS1 authenticates the Client and issues access token AT1 for use at RS1
+
+   (E)  Client presents access token AT1 to RS1 to access a protected resource
+
+   (F)  RS1 needs to access RS2 to fulfill this request, makes a call to
+      the Token Endpoint on the AS1 using the redelegate grant_type
+
+   (G)  AS1 validates AT1 and issues a token AT2 for use by RS1 against
+      RS2, where the rights assigned to AT2 are a subset of those
+      assigned to AT1
+
+   (H)  RS1 presents AT2 to RS2 to access a protected resource
+
+   (I)  RS2 presents AT2 on the Federated Introspection Endpoint on AS2
+
+   (J)  AS2 validates AT2 on the Federated Introspection Endpoint and
+      presents this AT2 on the Introspection Endpoint on AS1
+
+   (K)  AS1 validates AT2 on the Introspection Endpoint and returns JSON document
+      representing the meta information surrounding the token, including whether
+	  this token is currently active.
+
+   (L)  AS2 validates JSON document returned from AS1 Introspection Endpoint and
+      returns the new JSON document representing the meta information from AS2.
+
+   (M)  RS2 validates token AT2 and returns the protected resource to RS1
+
+   (N)  Client receives protected resource from RS1, including
+      information sourced from RS2
+
+   Steps A-E and N are standard OAuth2 and OAuth2 Bearer tokens
+   involving token AT1.  As such, the Client MAY make use of any OAuth2
+   grant type, such as authorization_code, implicit, client_credentials,
+   password or assertion.
+
